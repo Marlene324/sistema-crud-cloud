@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { google } = require("googleapis");
+const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
@@ -9,16 +9,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Configuración de autenticación de Google Sheets con las variables de entorno
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  },
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-
-const sheets = google.sheets({ version: "v4", auth });
+const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbyedZ6iM4DKb07wigil-LvIoci1xUyO6MFyqquAAXKT_2ybbxUveV-flq-S85kythBgjw/exec";
 
 // Base de datos temporal
 let productosDB = [
@@ -26,12 +17,12 @@ let productosDB = [
   { id: "2", nombre: "Mouse", precio: 350, categoria: "Accesorios", stock: 25 }
 ];
 
-// 🟢 READ - Obtener todos los productos
+// 🟢 READ
 app.get("/api/productos", (req, res) => {
   res.json(productosDB);
 });
 
-// 🟢 CREATE - Crear un nuevo producto y guardarlo en Google Sheets
+// 🟢 CREATE - Guarda en memoria y en Google Sheets
 app.post("/api/productos", async (req, res) => {
   const { nombre, precio, categoria, stock } = req.body;
 
@@ -48,27 +39,20 @@ app.post("/api/productos", async (req, res) => {
 
   productosDB.push(nuevoProducto);
 
-  // Guardar en Google Sheets si la variable SPREADSHEET_ID existe
+  // Enviar a Google Sheets a través de Apps Script
   try {
-    if (process.env.SPREADSHEET_ID) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: process.env.SPREADSHEET_ID,
-        range: "Hoja 1!A:E",
-        valueInputOption: "USER_ENTERED",
-        requestBody: {
-          values: [[nuevoProducto.id, nuevoProducto.nombre, nuevoProducto.precio, nuevoProducto.categoria, nuevoProducto.stock]],
-        },
-      });
-      console.log(" Guardado exitosamente en Google Sheets");
+    if (GOOGLE_SCRIPT_URL) {
+      await axios.post(GOOGLE_SCRIPT_URL, nuevoProducto);
+      console.log("Guardado exitosamente en Google Sheets");
     }
   } catch (error) {
-    console.error(" Error al guardar en Google Sheets:", error.message);
+    console.error("Error al guardar en Google Sheets:", error.message);
   }
 
   res.status(201).json({ mensaje: "Producto creado", producto: nuevoProducto });
 });
 
-// 🟡 UPDATE - Actualizar un producto existente
+// 🟡 UPDATE
 app.put("/api/productos/:id", (req, res) => {
   const { id } = req.params;
   const { nombre, precio, categoria, stock } = req.body;
@@ -82,7 +66,7 @@ app.put("/api/productos/:id", (req, res) => {
   }
 });
 
-// 🔴 DELETE - Eliminar un producto
+// 🔴 DELETE
 app.delete("/api/productos/:id", (req, res) => {
   const { id } = req.params;
   productosDB = productosDB.filter((p) => p.id !== id);
