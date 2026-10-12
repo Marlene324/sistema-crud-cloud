@@ -7,13 +7,14 @@ app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.PORT || 10000;
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzxMlicgW7qBCiHnC8WY6ogD8p2eND_hGRznS4K6T_C0IOAw6l2UnLPqGyiy3HOgFJquQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXGc-tZz6I8O1y1KVUNQG_wcLPN-6gQH39VLfQrcueH6hhJZzOukZ5f4OI-r_LQIPHU1Q/exec";
 
 // 1. OBTENER PRODUCTOS (GET)
 app.get("/api/productos", async (req, res) => {
   try {
     const response = await axios.get(GOOGLE_SCRIPT_URL, { maxRedirects: 5 });
-    return res.json(response.data.productos || []);
+    const productos = response.data && response.data.productos ? response.data.productos : [];
+    return res.json(productos);
   } catch (error) {
     console.error("Error en GET:", error.message);
     return res.status(500).json({ error: "Error al obtener productos de Google Sheets" });
@@ -28,14 +29,20 @@ app.post("/api/productos", async (req, res) => {
       action: "CREATE",
       payload: { nombre, precio: Number(precio), categoria, stock: Number(stock) }
     };
-    const response = await axios.post(GOOGLE_SCRIPT_URL, payload, { maxRedirects: 5 });
+    
+    // Enviamos como text/plain para evitar bloqueos de CORS/Redirección en Apps Script
+    const response = await axios.post(GOOGLE_SCRIPT_URL, JSON.stringify(payload), {
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      maxRedirects: 5
+    });
+
     if (response.data && response.data.status === "success") {
       return res.status(201).json(response.data.producto);
     }
-    return res.status(500).json({ error: response.data.message || "Error al crear" });
+    return res.status(500).json({ error: response.data.message || "Error al crear producto" });
   } catch (error) {
     console.error("Error en POST:", error.message);
-    return res.status(500).json({ error: "Error al crear producto en Google Sheets" });
+    return res.status(500).json({ error: "Error de servidor al guardar en Google Sheets" });
   }
 });
 
@@ -48,14 +55,19 @@ app.put("/api/productos/:id", async (req, res) => {
       action: "UPDATE",
       payload: { id, nombre, precio: Number(precio), categoria, stock: Number(stock) }
     };
-    const response = await axios.post(GOOGLE_SCRIPT_URL, payload, { maxRedirects: 5 });
+
+    const response = await axios.post(GOOGLE_SCRIPT_URL, JSON.stringify(payload), {
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      maxRedirects: 5
+    });
+
     if (response.data && response.data.status === "success") {
       return res.json(response.data.producto);
     }
     return res.status(500).json({ error: response.data.message || "Error al actualizar" });
   } catch (error) {
     console.error("Error en PUT:", error.message);
-    return res.status(500).json({ error: "Error al actualizar producto" });
+    return res.status(500).json({ error: "Error de servidor al actualizar" });
   }
 });
 
@@ -67,17 +79,22 @@ app.delete("/api/productos/:id", async (req, res) => {
       action: "DELETE",
       payload: { id }
     };
-    const response = await axios.post(GOOGLE_SCRIPT_URL, payload, { maxRedirects: 5 });
+
+    const response = await axios.post(GOOGLE_SCRIPT_URL, JSON.stringify(payload), {
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      maxRedirects: 5
+    });
+
     if (response.data && response.data.status === "success") {
       return res.json({ mensaje: "Producto eliminado", id });
     }
     return res.status(500).json({ error: response.data.message || "Error al eliminar" });
   } catch (error) {
     console.error("Error en DELETE:", error.message);
-    return res.status(500).json({ error: "Error al eliminar producto" });
+    return res.status(500).json({ error: "Error de servidor al eliminar" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("Servidor conectando a Google Sheets en puerto " + PORT);
+  console.log("Servidor escuchando en el puerto " + PORT);
 });

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import "./App.css";
 
-const API_URL = "http://localhost:3000/api/productos";
+// URL corregida apuntando a Render
+const API_URL = "https://sistema-crud-cloud-1.onrender.com/api/productos";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -31,11 +32,12 @@ function App() {
     fetch(API_URL)
       .then((res) => res.json())
       .then((data) => {
-        setProductos(data);
+        setProductos(Array.isArray(data) ? data : []);
         setCargando(false);
       })
       .catch((err) => {
         console.error(err);
+        setProductos([]);
         setCargando(false);
       });
   };
@@ -72,8 +74,8 @@ function App() {
   };
 
   const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.nombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.categoria || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!user) {
