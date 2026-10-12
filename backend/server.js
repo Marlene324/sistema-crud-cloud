@@ -9,25 +9,15 @@ app.use(cors());
 const PORT = process.env.PORT || 10000;
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXGc-tZz6I8O1y1KVUNQG_wcLPN-6gQH39VLfQrcueH6hhJZzOukZ5f4OI-r_LQIPHU1Q/exec";
 
-// Función auxiliar para enviar POST a Apps Script de forma compatible
-async function enviarAppsScript(payload) {
-  const bodyText = JSON.stringify(payload);
-  const response = await axios.post(GOOGLE_SCRIPT_URL, bodyText, {
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    maxRedirects: 5
-  });
-  return response.data;
-}
-
 // 1. OBTENER PRODUCTOS (GET)
 app.get("/api/productos", async (req, res) => {
   try {
-    const response = await axios.get(GOOGLE_SCRIPT_URL, { maxRedirects: 5 });
+    const response = await axios.get(GOOGLE_SCRIPT_URL);
     const productos = response.data && response.data.productos ? response.data.productos : [];
     return res.json(productos);
   } catch (error) {
     console.error("Error en GET:", error.message);
-    return res.status(500).json({ error: "Error al obtener productos de Google Sheets" });
+    return res.status(500).json({ error: "Error al obtener productos" });
   }
 });
 
@@ -35,18 +25,20 @@ app.get("/api/productos", async (req, res) => {
 app.post("/api/productos", async (req, res) => {
   const { nombre, precio, categoria, stock } = req.body;
   try {
-    const data = await enviarAppsScript({
-      action: "CREATE",
-      payload: { nombre, precio: Number(precio), categoria, stock: Number(stock) }
+    const response = await axios({
+      method: "post",
+      url: GOOGLE_SCRIPT_URL,
+      data: JSON.stringify({
+        action: "CREATE",
+        payload: { nombre, precio: Number(precio), categoria, stock: Number(stock) }
+      }),
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
     });
 
-    if (data && data.status === "success") {
-      return res.status(201).json(data.producto);
-    }
-    return res.status(500).json({ error: data.message || "Error al crear producto" });
+    return res.status(201).json(response.data);
   } catch (error) {
     console.error("Error en POST:", error.message);
-    return res.status(500).json({ error: "Error de servidor al guardar en Google Sheets" });
+    return res.status(500).json({ error: "Error de servidor al guardar" });
   }
 });
 
@@ -55,15 +47,17 @@ app.put("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, precio, categoria, stock } = req.body;
   try {
-    const data = await enviarAppsScript({
-      action: "UPDATE",
-      payload: { id, nombre, precio: Number(precio), categoria, stock: Number(stock) }
+    const response = await axios({
+      method: "post",
+      url: GOOGLE_SCRIPT_URL,
+      data: JSON.stringify({
+        action: "UPDATE",
+        payload: { id, nombre, precio: Number(precio), categoria, stock: Number(stock) }
+      }),
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
     });
 
-    if (data && data.status === "success") {
-      return res.json(data.producto);
-    }
-    return res.status(500).json({ error: data.message || "Error al actualizar" });
+    return res.json(response.data);
   } catch (error) {
     console.error("Error en PUT:", error.message);
     return res.status(500).json({ error: "Error de servidor al actualizar" });
@@ -74,15 +68,17 @@ app.put("/api/productos/:id", async (req, res) => {
 app.delete("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const data = await enviarAppsScript({
-      action: "DELETE",
-      payload: { id }
+    const response = await axios({
+      method: "post",
+      url: GOOGLE_SCRIPT_URL,
+      data: JSON.stringify({
+        action: "DELETE",
+        payload: { id }
+      }),
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
     });
 
-    if (data && data.status === "success") {
-      return res.json({ mensaje: "Producto eliminado", id });
-    }
-    return res.status(500).json({ error: data.message || "Error al eliminar" });
+    return res.json({ mensaje: "Eliminado", id });
   } catch (error) {
     console.error("Error en DELETE:", error.message);
     return res.status(500).json({ error: "Error de servidor al eliminar" });
@@ -90,5 +86,5 @@ app.delete("/api/productos/:id", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("Servidor escuchando en el puerto " + PORT);
+  console.log("Servidor corriendo en el puerto " + PORT);
 });
