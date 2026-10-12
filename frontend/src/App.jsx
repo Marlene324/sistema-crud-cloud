@@ -1,7 +1,6 @@
 import { useState } from "react";
 import "./App.css";
 
-// URL corregida apuntando a Render
 const API_URL = "https://sistema-crud-cloud-1.onrender.com/api/productos";
 
 function App() {
@@ -44,6 +43,7 @@ function App() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setCargando(true);
     const method = isEditing ? "PUT" : "POST";
     const url = isEditing ? `${API_URL}/${form.id}` : API_URL;
 
@@ -56,7 +56,15 @@ function App() {
       .then(() => {
         setForm({ id: "", nombre: "", precio: "", categoria: "", stock: "" });
         setIsEditing(false);
-        fetchProductos();
+        setTimeout(() => {
+          fetchProductos();
+        }, 1200);
+      })
+      .catch((err) => {
+        console.error(err);
+        setTimeout(() => {
+          fetchProductos();
+        }, 1200);
       });
   };
 
@@ -67,9 +75,14 @@ function App() {
 
   const handleDelete = (id) => {
     if (window.confirm("¿Deseas eliminar este registro?")) {
+      setCargando(true);
       fetch(`${API_URL}/${id}`, { method: "DELETE" })
         .then((res) => res.json())
-        .then(() => fetchProductos());
+        .then(() => {
+          setTimeout(() => {
+            fetchProductos();
+          }, 1200);
+        });
     }
   };
 
@@ -141,7 +154,7 @@ function App() {
         onChange={(e) => setSearchTerm(e.target.value)} 
       />
 
-      {cargando ? <p>Cargando información...</p> : (
+      {cargando ? <p style={{ marginTop: "20px" }}>Procesando datos en la nube...</p> : (
         <div className="table-container">
           <table className="custom-table">
             <thead>
