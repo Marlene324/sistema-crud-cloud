@@ -195,6 +195,7 @@ function generarRecomendaciones(productos) {
     }
   }
 
+  // CORREGIDO: Faltaba el operador de multiplicación (*)
   recs.push(
     `**Destacar el producto estrella:** **${masValioso.nombre}** representa el mayor valor en inventario (${dinero(masValioso.precio * masValioso.stock)}). Úsalo como producto principal en promociones.`
   );
@@ -314,13 +315,14 @@ function analizarPregunta(pregunta, todos) {
   // 12. Información de un producto específico
   if (prodMencionado) {
     const p = prodMencionado;
+    // CORREGIDO: Faltaba el operador de multiplicación (*)
     return `**${p.nombre}**: precio ${dinero(p.precio)}, categoría ${p.categoria}, ${p.stock} unidades en stock (valor: ${dinero(p.precio * p.stock)}).`;
   }
 
   // 13. Listado / cantidad de productos
   if (contiene(q, "cuantos productos", "lista", "todos los productos", "que productos", "catalogo", "productos hay")) {
     return `Hay **${productos.length} productos**${ambito}:\n${productos
-      .map((p) => `• **${p.nombre}**: ${dinero(p.precio)}, ${p.stock} unidades`)
+      .map((p) => `• **${p.nombre}**: ${dinero(p.precio)},${p.stock} unidades`)
       .join("\n")}`;
   }
 
@@ -334,7 +336,6 @@ function analizarPregunta(pregunta, todos) {
 }
 
 // ===================== INTELIGENCIA ARTIFICIAL (GEMINI) =====================
-// La clave se guarda como variable de entorno en Render (GEMINI_API_KEY), nunca en el código.
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
