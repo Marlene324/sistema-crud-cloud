@@ -8,19 +8,9 @@ app.use(cors());
 
 const PORT = process.env.PORT || 10000;
 
-// Variables de entorno con valores de respaldo
 const GOOGLE_SCRIPT_URL =
   process.env.GOOGLE_SCRIPT_URL ||
   "https://script.google.com/macros/s/AKfycbxGc-tZz6l8O1y1KVUNQG_wcLPN-6gQH39VLfQrcueH6hhJZzOukZ5f4OI-r_LQIPHU1Q/exec";
-
-const GEMINI_API_KEY =
-  process.env.GEMINI_API_KEY ||
-  "AIzaSyDlS_MzoNNmYfOHMBVN0APVTff4l4wjQwc";
-
-console.log(
-  "Clave cargada correctamente:",
-  GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 6) + "..." : "NO CONFIGURADA"
-);
 
 // Función auxiliar para Google Apps Script
 async function enviarAScript(action, payload) {
@@ -111,17 +101,12 @@ app.delete("/api/productos/:id", async (req, res) => {
   }
 });
 
-// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API REST)
+// 5. ASISTENTE ANALÍTICO (ANALIZADOR DIRECTO DE INVENTARIO)
 app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
   if (!pregunta) {
     return res.status(400).json({ dictamen: "Escribe una pregunta." });
-  }
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({
-      dictamen: "El servidor no tiene configurada la clave de la IA.",
-    });
   }
 
   try {
@@ -133,47 +118,44 @@ app.post("/api/asistente", async (req, res) => {
         ? responseSheets.data.productos
         : [];
 
-    const prompt = `
-Eres un asistente analítico experto en inventarios.
-A continuación tienes los datos actualizados del inventario en formato JSON:
-${JSON.stringify(productos, null, 2)}
+    if (productos.length === 0) {
+      return res.json({
+        dictamen: "Actualmente no hay productos registrados en el inventario.",
+      });
+    }
 
-Responde en español, de forma concisa, ejecutiva y profesional, usando solo estos datos.
-Si la respuesta no está en los datos, dilo con honestidad.
+    const pregLower = pregunta.toLowerCase();
+    let dictamen = "";
 
-Consulta del usuario:
-"${pregunta}"
-    `;
-
-    // Se utiliza el modelo recomendado gemini-3.8-flash en la versión v1 de la API REST
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    const responseGemini = await axios.post(
-      geminiUrl,
-      {
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-      },
-      {
-        headers: { "Content-Type": "application/json" },
+    // Análisis de producto con mayor precio
+    if (pregLower.includes("precio") || pregLower.includes("costoso") || pregLower.includes("caro")) {
+      const masCaro = productos.reduce((prev, current) =>
+        Number(current.precio) > Number(prev.precio) ? current : prev
+      );
+      dictamen = `El producto con mayor precio es **${masCaro.nombre}** con un costo de **$${masCaro.precio}** (Categoría: ${masCaro.categoria}, Stock: ${masCaro.stock}).`;
+    }
+    // Análisis de stock bajo
+    else if (pregLower.includes("stock") || pregLower.includes("poco") || pregLower.includes("agot")) {
+      const bajoStock = productos.filter((p) => Number(p.stock) < 10);
+      if (bajoStock.length > 0) {
+        const nombres = bajoStock.map((p) => `${p.nombre} (${p.stock} unids)`).join(", ");
+        dictamen = `Los productos con stock bajo (menos de 10 unidades) son: ${nombres}.`;
+      } else {
+        dictamen = "Todos los productos cuentan con un stock saludable (10 o más unidades).";
       }
-    );
+    }
+    // Resumen general
+    else {
+      const totalProductos = productos.length;
+      const totalStock = productos.reduce((acc, p) => acc + Number(p.stock || 0), 0);
+      dictamen = `Resumen Ejecutivo: Se tienen **${totalProductos} productos** registrados en catálogo con un volumen total de **${totalStock} unidades** en stock.`;
+    }
 
-    const respuestaTexto =
-      responseGemini.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No se obtuvo respuesta del modelo.";
-
-    return res.json({ dictamen: respuestaTexto });
+    return res.json({ dictamen });
   } catch (error) {
-    console.error(
-      "Error en Asistente Gemini:",
-      error.response ? JSON.stringify(error.response.data) : error.message
-    );
+    console.error("Error en Asistente:", error.message);
     return res.status(500).json({
-      dictamen: "Error al procesar la consulta con Inteligencia Artificial.",
+      dictamen: "Error al consultar los datos del inventario.",
     });
   }
 });
