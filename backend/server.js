@@ -17,8 +17,6 @@ const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
   "AIzaSyDlS_MzoNNmYfOHMBVN0APVTff4l4wjQwc";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
 console.log(
   "Clave cargada correctamente:",
   GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 6) + "..." : "NO CONFIGURADA"
@@ -147,7 +145,8 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    // Endpoint directo usando el modelo estable gemini-1.5-flash
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const responseGemini = await axios.post(
       geminiUrl,
