@@ -17,7 +17,8 @@ const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
   "AIzaSyDlS_MzoNNmYfOHMBVN0APVTff4l4wjQwc";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// Se utiliza gemini-1.5-flash para asegurar compatibilidad directa en REST
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // Verificación en consola
 console.log(
@@ -150,22 +151,28 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // 3. Petición directa a Gemini API vía REST
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    // 3. Petición directa a Gemini API vía REST utilizando gemini-1.5-flash
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
-    const responseGemini = await axios.post(geminiUrl, {
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ]
-    });
+    const responseGemini = await axios.post(
+      geminiUrl,
+      {
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ]
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
 
     const respuestaTexto =
       responseGemini.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No se obtuvo respuesta del modelo.";
 
-    // Retornamos 'dictamen' para sincronizar con el estado de React en el Frontend
+    // Retornamos 'dictamen' para sincronizar con el frontend
     return res.json({ dictamen: respuestaTexto });
 
   } catch (error) {
