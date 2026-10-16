@@ -145,8 +145,8 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // Endpoint directo usando el modelo estable gemini-1.5-flash
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // Se utiliza el modelo recomendado gemini-3.8-flash en la versión v1 de la API REST
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const responseGemini = await axios.post(
       geminiUrl,
