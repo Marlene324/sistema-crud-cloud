@@ -17,8 +17,8 @@ const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
   "AIzaSyDlS_MzoNNmYfOHMBVN0APVTff4l4wjQwc";
 
-// Se utiliza gemini-1.5-flash para asegurar compatibilidad directa en REST
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+// Utiliza la variable configurada en Render o 'gemini-2.5-flash' por defecto
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 // Verificación en consola
 console.log(
@@ -115,7 +115,7 @@ app.delete("/api/productos/:id", async (req, res) => {
   }
 });
 
-// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API v1)
+// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API v1beta DINO)
 app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
@@ -138,7 +138,7 @@ app.post("/api/asistente", async (req, res) => {
         ? responseSheets.data.productos
         : [];
 
-    // 2. Preparamos la instrucción con los datos formateados
+    // 2. Preparamos el prompt
     const prompt = `
 Eres un asistente analítico experto en inventarios.
 A continuación tienes los datos actualizados del inventario en formato JSON:
@@ -151,8 +151,8 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // 3. Petición directa usando la versión v1 de la API REST de Gemini
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // 3. Petición dinámica usando el GEMINI_MODEL configurado
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     
     const responseGemini = await axios.post(
       geminiUrl,
@@ -172,7 +172,6 @@ Consulta del usuario:
       responseGemini.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "No se obtuvo respuesta del modelo.";
 
-    // Retornamos 'dictamen' para sincronizar con el frontend
     return res.json({ dictamen: respuestaTexto });
 
   } catch (error) {
