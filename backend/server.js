@@ -333,7 +333,56 @@ function analizarPregunta(pregunta, todos) {
   return mensajeAyuda();
 }
 
+// ===================== INTELIGENCIA ARTIFICIAL (GEMINI) =====================
+// La clave se guarda como variable de entorno en Render (GEMINI_API_KEY), nunca en el código.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+async function preguntarAGemini(pregunta, productos) {
+  if (!GEMINI_API_KEY) throw new Error("Falta la variable GEMINI_API_KEY");
+
+  const datos = productos.map((p) => ({
+    nombre: p.nombre,
+    categoria: p.categoria,
+    precio: p.precio,
+    stock: p.stock,
+  }));
+
+  const prompt = [
+    "Eres el asistente analítico de un sistema de inventario.",
+    "Responde en español, de forma breve y clara (máximo 8 líneas).",
+    "Usa SOLO los datos del inventario que te doy; no inventes productos ni cifras.",
+    `Considera stock bajo cuando un producto tenga menos de ${STOCK_MINIMO} unidades.`,
+    "Puedes resaltar nombres y cifras importantes con **negritas** y usar viñetas con •.",
+    "Si la pregunta no tiene relación con el inventario, indícalo amablemente.",
+    "",
+    "INVENTARIO (JSON):",
+    JSON.stringify(datos),
+    "",
+    "PREGUNTA DEL USUARIO:",
+    pregunta,
+  ].join("\n");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const response = await axios.post(
+    url,
+    { contents: [{ parts: [{ text: prompt }] }] },
+    {
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      timeout: 25000,
+    }
+  );
+
+  const texto = response.data?.candidates?.[0]?.content?.parts
+    ?.map((p) => p.text || "")
+    .join("")
+    .trim();
+  if (!texto) throw new Error("Gemini respondió sin texto");
+  return texto;
+}
+
 // 5. ASISTENTE ANALÍTICO (POST)
+// Flujo: React -> API -> Google Sheets + Gemini -> respuesta -> React
 app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
@@ -341,15 +390,16 @@ app.post("/api/asistente", async (req, res) => {
     return res.status(400).json({ dictamen: "Escribe una pregunta." });
   }
 
+  let productos = [];
   try {
+    // 1) Leer los productos desde Google Sheets
     const responseSheets = await axios.get(GOOGLE_SCRIPT_URL, { maxRedirects: 10 });
     const crudos =
       responseSheets.data && Array.isArray(responseSheets.data.productos)
         ? responseSheets.data.productos
         : [];
 
-    // Limpia los datos: precio y stock como números
-    const productos = crudos
+    productos = crudos
       .filter((p) => p && p.nombre)
       .map((p) => ({
         ...p,
@@ -358,20 +408,24 @@ app.post("/api/asistente", async (req, res) => {
         precio: Number(p.precio) || 0,
         stock: Number(p.stock) || 0,
       }));
-
-    if (productos.length === 0) {
-      return res.json({
-        dictamen: "Actualmente no hay productos registrados en el inventario.",
-      });
-    }
-
-    const dictamen = analizarPregunta(pregunta, productos);
-    return res.json({ dictamen });
   } catch (error) {
-    console.error("Error en Asistente:", error.message);
-    return res.status(500).json({
-      dictamen: "Error al consultar los datos del inventario.",
-    });
+    console.error("Error al leer Google Sheets:", error.message);
+    return res.status(500).json({ dictamen: "Error al consultar los datos del inventario." });
+  }
+
+  if (productos.length === 0) {
+    return res.json({ dictamen: "Actualmente no hay productos registrados en el inventario." });
+  }
+
+  // 2) Generar la respuesta con Gemini
+  try {
+    const dictamen = await preguntarAGemini(pregunta, productos);
+    return res.json({ dictamen, fuente: "gemini" });
+  } catch (error) {
+    // 3) Si la IA falla (sin clave, límite de uso, etc.), se usa el análisis local de respaldo
+    console.error("Error con Gemini, usando análisis local:", error.response?.data?.error?.message || error.message);
+    const dictamen = analizarPregunta(pregunta, productos);
+    return res.json({ dictamen, fuente: "local" });
   }
 });
 
