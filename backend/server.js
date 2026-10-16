@@ -115,7 +115,7 @@ app.delete("/api/productos/:id", async (req, res) => {
   }
 });
 
-// 5. ASISTENTE ANALÍTICO (POST CON GEMINI)
+// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API v1)
 app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
@@ -151,8 +151,8 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // 3. Petición directa a Gemini API vía REST utilizando gemini-1.5-flash
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // 3. Petición directa usando la versión v1 de la API REST de Gemini
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const responseGemini = await axios.post(
       geminiUrl,
