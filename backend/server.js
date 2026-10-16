@@ -1,7 +1,6 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
 app.use(express.json());
@@ -9,7 +8,7 @@ app.use(cors());
 
 const PORT = process.env.PORT || 10000;
 
-// Credenciales configuradas correctamente
+// Credenciales y variables de entorno
 const GOOGLE_SCRIPT_URL =
   process.env.GOOGLE_SCRIPT_URL ||
   "https://script.google.com/macros/s/AKfycbxGc-tZz6l8O1y1KVUNQG_wcLPN-6gQH39VLfQrcueH6hhJZzOukZ5f4OI-r_LQIPHU1Q/exec";
@@ -26,10 +25,7 @@ console.log(
   GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 6) + "..." : "NO CONFIGURADA"
 );
 
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
-// Envía una acción al Apps Script y valida que realmente respondió "success".
-// Apps Script responde con un redirect 302 tras el POST; axios lo sigue solo.
+// Función auxiliar para enviar acciones al Google Apps Script
 async function enviarAScript(action, payload) {
   const response = await axios.post(
     GOOGLE_SCRIPT_URL,
@@ -123,16 +119,16 @@ app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
   if (!pregunta) {
-    return res.status(400).json({ respuesta: "Escribe una pregunta." });
+    return res.status(400).json({ dictamen: "Escribe una pregunta." });
   }
   if (!GEMINI_API_KEY) {
     return res.status(500).json({
-      respuesta: "El servidor no tiene configurada la clave de la IA.",
+      dictamen: "El servidor no tiene configurada la clave de la IA.",
     });
   }
 
   try {
-    // Obtenemos los productos actuales de Google Sheets
+    // 1. Obtenemos los productos de Google Sheets
     const responseSheets = await axios.get(GOOGLE_SCRIPT_URL, {
       maxRedirects: 10,
     });
@@ -141,7 +137,7 @@ app.post("/api/asistente", async (req, res) => {
         ? responseSheets.data.productos
         : [];
 
-    // Preparamos la instrucción con los datos formateados
+    // 2. Preparamos la instrucción con los datos formateados
     const prompt = `
 Eres un asistente analítico experto en inventarios.
 A continuación tienes los datos actualizados del inventario en formato JSON:
@@ -154,21 +150,31 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // Procesamos la consulta con Gemini
-    const result = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
+    // 3. Petición directa a Gemini API vía REST
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const responseGemini = await axios.post(geminiUrl, {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ]
     });
 
-    return res.json({ respuesta: result.text });
+    const respuestaTexto =
+      responseGemini.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No se obtuvo respuesta del modelo.";
+
+    // Retornamos 'dictamen' para sincronizar con el estado de React en el Frontend
+    return res.json({ dictamen: respuestaTexto });
+
   } catch (error) {
     console.error(
       "Error en Asistente Gemini:",
-      error.status || "",
-      error.message
+      error.response ? JSON.stringify(error.response.data) : error.message
     );
     return res.status(500).json({
-      respuesta: "Error al procesar la consulta con Inteligencia Artificial.",
+      dictamen: "Error al procesar la consulta con Inteligencia Artificial.",
     });
   }
 });
