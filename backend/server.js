@@ -8,7 +8,7 @@ app.use(cors());
 
 const PORT = process.env.PORT || 10000;
 
-// Credenciales y variables de entorno
+// Variables de entorno con valores de respaldo
 const GOOGLE_SCRIPT_URL =
   process.env.GOOGLE_SCRIPT_URL ||
   "https://script.google.com/macros/s/AKfycbxGc-tZz6l8O1y1KVUNQG_wcLPN-6gQH39VLfQrcueH6hhJZzOukZ5f4OI-r_LQIPHU1Q/exec";
@@ -17,16 +17,14 @@ const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
   "AIzaSyDlS_MzoNNmYfOHMBVN0APVTff4l4wjQwc";
 
-// Utiliza la variable configurada en Render o 'gemini-2.5-flash' por defecto
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-// Verificación en consola
 console.log(
   "Clave cargada correctamente:",
   GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 6) + "..." : "NO CONFIGURADA"
 );
 
-// Función auxiliar para enviar acciones al Google Apps Script
+// Función auxiliar para Google Apps Script
 async function enviarAScript(action, payload) {
   const response = await axios.post(
     GOOGLE_SCRIPT_URL,
@@ -47,7 +45,7 @@ async function enviarAScript(action, payload) {
   return data;
 }
 
-// Ruta de prueba rápida
+// Ruta de prueba
 app.get("/", (req, res) => {
   res.send("API Control de Productos funcionando");
 });
@@ -115,7 +113,7 @@ app.delete("/api/productos/:id", async (req, res) => {
   }
 });
 
-// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API v1beta DINO)
+// 5. ASISTENTE ANALÍTICO (POST CON GEMINI API REST)
 app.post("/api/asistente", async (req, res) => {
   const pregunta = String((req.body && req.body.pregunta) || "").trim();
 
@@ -129,7 +127,6 @@ app.post("/api/asistente", async (req, res) => {
   }
 
   try {
-    // 1. Obtenemos los productos de Google Sheets
     const responseSheets = await axios.get(GOOGLE_SCRIPT_URL, {
       maxRedirects: 10,
     });
@@ -138,7 +135,6 @@ app.post("/api/asistente", async (req, res) => {
         ? responseSheets.data.productos
         : [];
 
-    // 2. Preparamos el prompt
     const prompt = `
 Eres un asistente analítico experto en inventarios.
 A continuación tienes los datos actualizados del inventario en formato JSON:
@@ -151,20 +147,19 @@ Consulta del usuario:
 "${pregunta}"
     `;
 
-    // 3. Petición dinámica usando el GEMINI_MODEL configurado
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-    
+
     const responseGemini = await axios.post(
       geminiUrl,
       {
         contents: [
           {
-            parts: [{ text: prompt }]
-          }
-        ]
+            parts: [{ text: prompt }],
+          },
+        ],
       },
       {
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       }
     );
 
@@ -173,7 +168,6 @@ Consulta del usuario:
       "No se obtuvo respuesta del modelo.";
 
     return res.json({ dictamen: respuestaTexto });
-
   } catch (error) {
     console.error(
       "Error en Asistente Gemini:",
