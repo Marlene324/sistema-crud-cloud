@@ -16,11 +16,11 @@ export default function Asistente() {
         "https://sistema-crud-cloud-1.onrender.com/api/asistente",
         { pregunta }
       );
-      // Esto descongela el botón y muestra el resultado
+      // Muestra la respuesta devuelta por el backend
       setDictamen(res.data.dictamen);
     } catch (error) {
       console.error(error);
-      setDictamen("Error al consultar el inventario.");
+      setDictamen("Error al conectar con el backend.");
     } finally {
       setCargando(false);
     }
@@ -43,9 +43,9 @@ export default function Asistente() {
         </button>
       </div>
 
-      {/* MUESTRA EL DICTAMEN EN PANTALLA */}
+      {/* RENDERIZADO DEL DICTAMEN EN PANTALLA */}
       {dictamen && (
-        <div style={{ marginTop: "15px", padding: "12px", background: "#eef2f7", borderRadius: "6px", color: "#333" }}>
+        <div style={{ marginTop: "15px", padding: "12px", background: "#eef2f7", borderRadius: "6px" }}>
           <strong>Respuesta:</strong>
           <p style={{ margin: "5px 0 0 0" }}>{dictamen}</p>
         </div>
